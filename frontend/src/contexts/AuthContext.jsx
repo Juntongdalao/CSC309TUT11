@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 const AuthContext = createContext(null);
 
 // TODO: get the BACKEND_URL.
-const VITE_BACKEND_URL = "http://localhost:3000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
 /*
  * This provider should export a `user` context state that is 
@@ -26,24 +26,24 @@ export const AuthProvider = ({ children }) => {
             setUser(null);
             return;
         }
-        const fetchUser = async () => {
-            try {
-                const res = await fetch(`${BACKEND_URL}/user/me`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (!res.ok) {
-                    localStorage.removeItem("token");
-                    setUser(null);
-                    return;
-                }
-                const data = await res.json();
-                setUser(data.user);
+        fetch(`${BACKEND_URL}/user/me`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${token}`
             }
-            catch(err) {
+        }).then(async (res) => {
+            if (!res.ok) {
+                // Token invalid or expired
+                localStorage.removeItem("token");
                 setUser(null);
+                return;
             }
-        };
-        fetchUser();
+            const data = await res.json();
+            setUser(data.user);
+        }).catch(() => {
+            localStorage.removeItem("token");
+            setUser(null);
+        });
     }, []);
 
     /*
@@ -68,35 +68,28 @@ export const AuthProvider = ({ children }) => {
      */
     const login = async (username, password) => {
         // TODO: complete me
-        try {
-            const response = await fetch(`${VITE_BACKEND_URL}/login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                return data.message || "Login failed";
-            }
-
-            localStorage.setItem("token", data.token);
-
-            const profileRes = await fetch(`${VITE_BACKEND_URL}/user/me`, {
-                headers: { Authorization: `Bearer ${data.token}` }
-            });
-
-            if (profileRes.ok) {
-                const profile = await profileRes.json();
-                setUser(profile.user);
-            }
-
-            navigate("/profile");
-            return "";
+        const res = await fetch(`${BACKEND_URL}/login`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({username, password})
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            return err.message;
         }
-        catch (err) {
-            return "Network error";
-        }
+        const data = await res.json();
+        const token = data.token;
+        localStorage.setItem("token", token);
+        const profileRes = await fetch(`${BACKEND_URL}/user/me`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+        const profileData = await profileRes.json();
+        setUser(profileData.user);
+        navigate("/profile");
+        return null;
     };
 
     /**
@@ -108,24 +101,19 @@ export const AuthProvider = ({ children }) => {
      */
     const register = async (userData) => {
         // TODO: complete me
-        try {
-            const response = await fetch(`${VITE_BACKEND_URL}/register`, {
+        const register = async (userData) => {
+            const res = await fetch(`${BACKEND_URL}/register`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(userData)
             });
-
-            const data = await response.json();
-            if (!response.ok) {
-                return data.message || "Registration failed";
+            if (!res.ok) {
+                const err = await res.json();
+                return err.message;
             }
-
-            navigate("/");
-            return "";
-        }
-        catch (err) {
-            return "Network error";
-        }
+            navigate("/success");
+            return null;
+        };
     };
 
     return (
