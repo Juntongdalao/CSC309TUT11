@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext(null);
 
-// TODO: get the BACKEND_URL.
+// Backend URL (Vite env var OR fallback for development)
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
 /*
@@ -17,9 +17,15 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
  */
 export const AuthProvider = ({ children }) => {
     const navigate = useNavigate();
-    // const user = null; // TODO: Modify me.
     const [user, setUser] = useState(null);
 
+    /*
+     * useEffect for session persistence (hard reload)
+     * 1. Check if token exists
+     * 2. If yes → fetch /user/me
+     * 3. If valid → setUser(...)
+     * 4. If invalid → clear token + setUser(null)
+     */
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) {
@@ -33,7 +39,6 @@ export const AuthProvider = ({ children }) => {
             }
         }).then(async (res) => {
             if (!res.ok) {
-                // Token invalid or expired
                 localStorage.removeItem("token");
                 setUser(null);
                 return;
@@ -52,7 +57,7 @@ export const AuthProvider = ({ children }) => {
      * @remarks This function will always navigate to "/".
      */
     const logout = () => {
-        // TODO: complete me
+
         localStorage.removeItem("token");
         setUser(null);
         navigate("/");
@@ -60,14 +65,17 @@ export const AuthProvider = ({ children }) => {
 
     /**
      * Login a user with their credentials.
-     *
+     * 1. POST username/password to /login
+     * 2. If successful → store token
+     * 3. Fetch /user/me to get profile
+     * 4. Update user state
+     * 5. Navigate to /profile
      * @remarks Upon success, navigates to "/profile". 
      * @param {string} username - The username of the user.
      * @param {string} password - The password of the user.
      * @returns {string} - Upon failure, Returns an error message.
      */
     const login = async (username, password) => {
-        // TODO: complete me
         const res = await fetch(`${BACKEND_URL}/login`, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
@@ -94,26 +102,24 @@ export const AuthProvider = ({ children }) => {
 
     /**
      * Registers a new user. 
-     * 
+     * On success → navigate to /success
+     * On failure → return error message
      * @remarks Upon success, navigates to "/".
      * @param {Object} userData - The data of the user to register.
      * @returns {string} - Upon failure, returns an error message.
      */
     const register = async (userData) => {
-        // TODO: complete me
-        const register = async (userData) => {
-            const res = await fetch(`${BACKEND_URL}/register`, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(userData)
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                return err.message;
-            }
-            navigate("/success");
-            return null;
-        };
+        const res = await fetch(`${BACKEND_URL}/register`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(userData)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            return err.message;
+        }
+        navigate("/success");
+        return null;
     };
 
     return (
